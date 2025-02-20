@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .titulo {
+            text-align: center;
+            margin-top: 10px;
+            font-family: Arial;
+            font-size: 50px;
+            color: #A9A9A9;
+        }
+        .subtitulo {
+            font-family: Arial;
+            color: #555;
+            font-size: 18px;
+            font-weight: normal;
+        }
+        .img-direita {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: auto;
+        }
+        table {
+            width: 80%;
+            border-collapse: collapse;
+            margin: 50px auto;
+        }
+        table, th, td {
+            
+        }
+        th, td {
+            padding: 15px;
+            text-align: center;
+            font-family: Arial;
+        }
+        th {
+            background-color: #228B22;
+            color: #ffffff;
+            font-size: 25px;
+            
+        }
+        .formulario {
+            width: 80%;
+            margin: 20px auto;
+            padding: 10px;
+            background-color:  	#DCDCDC;
+        }
+
+        .formulario input[type="text"],
+        .formulario select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            box-sizing: border-box;
+            border: none;
+        }
+        .formulario button {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .formulario button:hover {
+            background-color: #45a049;
+        }
+
+
+        tr:hover {background-color: 	#DCDCDC;}
+        tr:nth-child(even) {background-color: #F5F5F5;}
+
+    </style>
+</head>
+<body>
+    <div class="titulo">
+        <h1>TABELA DE ALUNOS</h1>
+        <h2 class="subtitulo">Lista atualizada de todos os alunos matriculados</h2>
+    </div>
+    <img src="	https://dci.unifesp.br/images/institucional/logo_unifesp.svg" alt="Logo" class="img-direita">
+
+     <div class="formulario">
+        <h3 id="form-titulo" class="subtitulo">Adicionar Aluno</h3>
+        <input type="text" id="id-aluno" placeholder="ID (manual)" required>
+        <input type="hidden" id="id-aluno">
+        <input type="text" id="matricula" placeholder="Matrícula" required>
+        <select id="periodo">
+            <option value="">Selecione o Período</option>
+            <option value="Matutino">Matutino</option>
+            <option value="Vespertino">Vespertino</option>
+            <option value="Noturno">Noturno</option>
+            <option value="Integral">Integral</option>
+        </select>
+        <input type="text" id="curso" placeholder="Curso" required>
+        <button onclick="adicionarOuAtualizar()">Salvar</button>
+        <button onclick="limparFormulario()">Cancelar</button>
+    </div>
+
+    <div class="formulario">
+        <h3 class="subtitulo">Consulta SQL Personalizada</h3>
+        <input type="text" id="consulta-sql" placeholder="Digite sua consulta SQL aqui...">
+        <button onclick="executarConsulta()">Executar Consulta</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Matrícula</th>
+                <th>Período</th>
+                <th>Curso</th>
+                <th>Opções</th>
+            </tr>
+        </thead>
+        <tbody id="tabela-dados">
+        </tbody>
+    </table>
+
+    <script>
+        const urlBase = 'http://localhost:8080/usuarios';
+
+        // Função para Listar Alunos (READ)
+        function listarAlunos() {
+            fetch(urlBase)
+                .then(response => response.json())
+                .then(data => {
+                    const tabela = document.getElementById('tabela-dados');
+                    tabela.innerHTML = '';
+                    data.forEach(aluno => {
+                        const linha = document.createElement('tr');
+                        linha.innerHTML = `
+                            <td>${aluno.id}</td>
+                            <td>${aluno.matricula}</td>
+                            <td>${aluno.periodo}</td>
+                            <td>${aluno.curso}</td>
+                            <td>
+                                <button onclick="editar(${aluno.id})">Editar</button>
+                                <button onclick="apagar(${aluno.id})">Apagar</button>
+                            </td>
+                        `;
+                        tabela.appendChild(linha);
+                    });
+                })
+                .catch(error => console.error('Erro ao listar alunos:', error));
+        }
+
+        // Função para Adicionar ou Atualizar Aluno (CREATE e UPDATE)
+        function adicionarOuAtualizar() {
+            const id = document.getElementById('id-aluno').value;
+            const matricula = document.getElementById('matricula').value;
+            const periodo = document.getElementById('periodo').value;
+            const curso = document.getElementById('curso').value;
+        
+            const aluno = { id, matricula, periodo, curso };
+        
+            // Usa sempre POST para criar
+            const metodo = 'POST';
+            const url = urlBase;
+        
+            fetch(url, {
+                method: metodo,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(aluno)
+            })
+            .then(response => {
+                if (response.status === 409) {
+                    // Se der erro 409 (Conflict), exibe a mensagem de erro
+                    alert('Erro: Aluno com este ID já foi cadastrado!');
+                } else if (!response.ok) {
+                    throw new Error(`Erro na requisição: ${response.status}`);
+                } else {
+                    return response.json();
+                }
+            })
+            .then(() => {
+                listarAlunos();
+                limparFormulario();
+            })
+            .catch(error => console.error('Erro ao salvar aluno:', error));
+        }
+        
+        
+
+        // Função para Editar Aluno (READ para um único registro)
+        function editar(id) {
+            fetch(`${urlBase}/${id}`)
+                .then(response => response.json())
+                .then(aluno => {
+                    document.getElementById('id-aluno').value = aluno.id;
+                    document.getElementById('matricula').value = aluno.matricula;
+                    document.getElementById('periodo').value = aluno.periodo;
+                    document.getElementById('curso').value = aluno.curso;
+                    document.getElementById('form-titulo').innerText = 'Editar Aluno';
+                })
+                .catch(error => console.error('Erro ao buscar aluno:', error));
+        }
+
+        // Função para Apagar Aluno (DELETE)
+        function apagar(id) {
+            if (confirm('Tens a certeza que queres apagar este aluno?')) {
+                fetch(`${urlBase}/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(() => listarAlunos())
+                .catch(error => console.error('Erro ao apagar aluno:', error));
+            }
+        }
+
+        // Limpar o Formulário
+        function limparFormulario() {
+            document.getElementById('id-aluno').value = '';
+            document.getElementById('matricula').value = '';
+            document.getElementById('periodo').value = '';
+            document.getElementById('curso').value = '';
+            document.getElementById('form-titulo').innerText = 'Adicionar Aluno';
+        }
+
+        function executarConsulta() {
+            const consultaSQL = document.getElementById('consulta-sql').value.trim();
+        
+            if (!consultaSQL) {
+                alert('Por favor, insira uma consulta SQL!');
+                return;
+            }
+        
+            // Envia a requisição para o backend
+            fetch(urlBase + '/consulta', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ sql: consultaSQL })  // Enviando a consulta no corpo
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erro na requisição: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Resposta recebida:', data);
+        
+                // Acessa as colunas e dados recebidos
+                const colunas = data.colunas;
+                const dados = data.dados;
+        
+                const tabela = document.getElementById('tabela-dados');
+                tabela.innerHTML = '';
+        
+                // Mapeia os nomes das colunas recebidas para os nomes da tabela
+                const mapeamentoColunas = {
+                    idUsuario: 'idUsuario',
+                    matricula: 'matricula',
+                    periodo: 'periodo',
+                    curso: 'curso'
+                };
+        
+                dados.forEach(linha => {
+                    const tr = document.createElement('tr');
+        
+                    // Inicializa as variáveis com '-'
+                    let idUsuario = '-';
+                    let matricula = '-';
+                    let periodo = '-';
+                    let curso = '-';
+        
+                    // Associa valores conforme o nome da coluna recebida
+                    colunas.forEach((nomeColuna, index) => {
+                        if (mapeamentoColunas[nomeColuna]) {
+                            switch (mapeamentoColunas[nomeColuna]) {
+                                case 'idUsuario':
+                                    idUsuario = linha[index];
+                                    break;
+                                case 'matricula':
+                                    matricula = linha[index];
+                                    break;
+                                case 'periodo':
+                                    periodo = linha[index];
+                                    break;
+                                case 'curso':
+                                    curso = linha[index];
+                                    break;
+                            }
+                        }
+                    });
+        
+                    // Preenche a linha da tabela
+                    tr.innerHTML = `
+                        <td>${idUsuario}</td>
+                        <td>${matricula}</td>
+                        <td>${periodo}</td>
+                        <td>${curso}</td>
+                        <td>
+                            <button disabled>Editar</button>
+                            <button disabled>Apagar</button>
+                        </td>
+                    `;
+                    tabela.appendChild(tr);
+                });
+            })
+            .catch(error => console.error('Erro ao executar consulta:', error));
+        }
+        
+
+        
+        listarAlunos();
+    </script>
+
+</body>
+</html>
